@@ -7,3 +7,6 @@ coverage/
 logs/
 *.log
 .DS_Store
+docs/
+contexto.txt
+fases.txt
