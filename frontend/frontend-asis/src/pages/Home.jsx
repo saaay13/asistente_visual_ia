@@ -2,10 +2,11 @@ import CameraSection from "../components/organisms/CameraSection";
 
 const Home = () => {
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold text-center">
+    <div>
+      <h1 className="text-2xl text-center font-bold">
         Asistente Visual IA
       </h1>
+
       <CameraSection />
     </div>
   );

@@ -17,4 +17,13 @@ app.get("/", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
+app.post("/api/imagen", (req, res) => {
+  const { imagen } = req.body;
+
+  console.log("Imagen recibida");
+
+  res.json({
+    mensaje: "ok",
+  });
+});
 });
