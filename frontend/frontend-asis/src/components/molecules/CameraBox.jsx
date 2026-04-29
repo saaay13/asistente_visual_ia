@@ -34,6 +34,7 @@ const CameraBox = () => {
     enviarImagen(imagen);
   };
 
+
   const enviarImagen = async (imagen) => {
     try {
       const res = await fetch("http://localhost:4000/api/imagen", {
@@ -61,6 +62,7 @@ const CameraBox = () => {
       >
         Capturar
       </button>
+      
 
       <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
