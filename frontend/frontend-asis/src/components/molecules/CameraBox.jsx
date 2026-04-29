@@ -1,70 +1,65 @@
 import { useEffect, useRef } from "react";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
+import "@tensorflow/tfjs";
 
 const CameraBox = () => {
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
+  const modelRef = useRef(null);
 
+  // 🔥 cargar modelo IA
+  useEffect(() => {
+    const cargarModelo = async () => {
+      modelRef.current = await cocoSsd.load();
+      console.log("Modelo cargado ✅");
+    };
+
+    cargarModelo();
+  }, []);
+
+  // 🎥 activar cámara
   useEffect(() => {
     const activarCamara = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-        videoRef.current.srcObject = stream;
-      } catch (error) {
-        console.error("Error camara:", error);
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      videoRef.current.srcObject = stream;
     };
 
     activarCamara();
   }, []);
 
-  const capturarImagen = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
+  // 🧠 detectar objetos
+  const detectar = async () => {
+    if (!modelRef.current || !videoRef.current) {
+      console.log("Modelo o video no listo");
+      return;
+    }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    const predicciones = await modelRef.current.detect(videoRef.current);
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0);
+    console.log("Objetos detectados:", predicciones);
 
-    const imagen = canvas.toDataURL("image/png");
-
-    enviarImagen(imagen);
-  };
-
-
-  const enviarImagen = async (imagen) => {
-    try {
-      const res = await fetch("http://localhost:4000/api/imagen", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ imagen }),
-      });
-
-      const data = await res.json();
-      console.log("Respuesta backend:", data);
-    } catch (error) {
-      console.error("Error envio:", error);
+    if (predicciones.length > 0) {
+      const objeto = predicciones[0].class;
+      alert("Objeto detectado: " + objeto);
     }
   };
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <video ref={videoRef} autoPlay className="w-full rounded-xl" />
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        className="w-full rounded-xl"
+      />
 
       <button
-        onClick={capturarImagen}
-        className="bg-blue-500 text-white px-4 py-2 rounded-xl"
+        onClick={detectar}
+        className="bg-green-500 text-white px-4 py-2 rounded-xl"
       >
-        Capturar
+        Detectar objeto
       </button>
-      
-
-      <canvas ref={canvasRef} style={{ display: "none" }} />
     </div>
   );
 };
