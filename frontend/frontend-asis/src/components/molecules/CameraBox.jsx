@@ -1,12 +1,11 @@
 import { useEffect, useRef } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
-
+import { interpretarObjeto } from "../../ia/reglas";
 const CameraBox = () => {
   const videoRef = useRef(null);
   const modelRef = useRef(null);
 
-  // 🔥 cargar modelo IA
   useEffect(() => {
     const cargarModelo = async () => {
       modelRef.current = await cocoSsd.load();
@@ -16,7 +15,6 @@ const CameraBox = () => {
     cargarModelo();
   }, []);
 
-  // 🎥 activar cámara
   useEffect(() => {
     const activarCamara = async () => {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -27,23 +25,32 @@ const CameraBox = () => {
 
     activarCamara();
   }, []);
+const detectar = async () => {
+  const objeto = "chair";
 
-  // 🧠 detectar objetos
-  const detectar = async () => {
-    if (!modelRef.current || !videoRef.current) {
-      console.log("Modelo o video no listo");
-      return;
-    }
+  const mensaje = interpretarObjeto(objeto);
 
-    const predicciones = await modelRef.current.detect(videoRef.current);
+  console.log("Simulado:", mensaje);
+  alert(mensaje);
+};
+//   const detectar = async () => {
+//   if (!modelRef.current || !videoRef.current) {
+//     console.log("Modelo o video no listo");
+//     return;
+//   }
 
-    console.log("Objetos detectados:", predicciones);
+//   const predicciones = await modelRef.current.detect(videoRef.current);
 
-    if (predicciones.length > 0) {
-      const objeto = predicciones[0].class;
-      alert("Objeto detectado: " + objeto);
-    }
-  };
+//   if (predicciones.length > 0) {
+//     const objeto = predicciones[0].class;
+
+//     const mensaje = interpretarObjeto(objeto);
+
+//     console.log("Interpretacion:", mensaje);
+
+//     alert(mensaje);
+//   }
+// };
 
   return (
     <div className="flex flex-col items-center gap-4">
