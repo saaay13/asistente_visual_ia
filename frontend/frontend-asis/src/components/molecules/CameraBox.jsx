@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import { interpretarObjeto } from "../../ia/reglas";
+import { hablar } from "../../ia/voz";
 const CameraBox = () => {
   const videoRef = useRef(null);
   const modelRef = useRef(null);
@@ -17,40 +18,38 @@ const CameraBox = () => {
 
   useEffect(() => {
     const activarCamara = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-      });
-      videoRef.current.srcObject = stream;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        videoRef.current.srcObject = stream;
+      } catch (error) {
+        console.error("Error al acceder a la cámara:", error);
+      }
     };
 
     activarCamara();
   }, []);
-const detectar = async () => {
-  const objeto = "chair";
+  const detectar = async () => {
+    if (!modelRef.current || !videoRef.current) {
+      console.log("Modelo o video no listo");
+      return;
+    }
 
-  const mensaje = interpretarObjeto(objeto);
+    const predicciones = await modelRef.current.detect(videoRef.current);
 
-  console.log("Simulado:", mensaje);
-  alert(mensaje);
-};
-//   const detectar = async () => {
-//   if (!modelRef.current || !videoRef.current) {
-//     console.log("Modelo o video no listo");
-//     return;
-//   }
+    if (predicciones.length > 0) {
+      const objeto = predicciones[0].class;
 
-//   const predicciones = await modelRef.current.detect(videoRef.current);
+      const mensaje = interpretarObjeto(objeto);
 
-//   if (predicciones.length > 0) {
-//     const objeto = predicciones[0].class;
+      console.log("Interpretación:", mensaje);
 
-//     const mensaje = interpretarObjeto(objeto);
-
-//     console.log("Interpretacion:", mensaje);
-
-//     alert(mensaje);
-//   }
-// };
+      hablar(mensaje);
+    } else {
+      console.log("No se detectó ningún objeto conocido");
+    }
+  };
 
   return (
     <div className="flex flex-col items-center gap-4">
