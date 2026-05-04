@@ -4,13 +4,12 @@ export const hablar = (texto) => {
     return;
   }
 
-  // Cancelar la voz anterior si sigue hablando
   window.speechSynthesis.cancel();
 
   const utterance = new SpeechSynthesisUtterance(texto);
-  utterance.lang = "es-ES"; // Español
-  utterance.rate = 1.0; // Velocidad normal
-  utterance.pitch = 1.0; // Tono normal
+  utterance.lang = "es-ES";
+  utterance.rate = 1.0;
+  utterance.pitch = 1.0;
 
   window.speechSynthesis.speak(utterance);
 };
