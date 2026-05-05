@@ -2,6 +2,7 @@ const StatusIndicator = ({ isReady, mode }) => {
   const isOff = mode === 'off';
   let bgColor = "bg-yellow-500";
   
+  // Color segun estado de carga y modo
   if (isReady) {
     if (mode === 'auto') bgColor = "bg-green-500";
     else if (mode === 'bills') bgColor = "bg-blue-500";

@@ -8,20 +8,20 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 const PORT = process.env.PORT || 4000;
 
+// Ruta para procesar imagenes de la camara
 app.post("/api/imagen", (req, res) => {
   const { imagen } = req.body;
 
   if (!imagen) {
-    return res.status(400).json({ mensaje: "No se recibió imagen" });
+    return res.status(400).json({ mensaje: "Sin imagen" });
   }
 
-  // Llamar al script de Python combinado (Baches + Billetes)
+  // Ejecuta script de IA combinada
   const pythonProcess = spawn('python', ['predict_combined.py']);
 
   let resultData = "";
@@ -38,7 +38,6 @@ app.post("/api/imagen", (req, res) => {
       if (resultData) {
         const resultado = JSON.parse(resultData);
         
-        // Construimos el mensaje de respuesta basado en ambos modelos
         let mensaje = "";
         if (resultado.bache) mensaje += "Bache detectado. ";
         if (resultado.billete) mensaje += `Billete de ${resultado.billete} identificado. `;
@@ -51,23 +50,23 @@ app.post("/api/imagen", (req, res) => {
           error: resultado.error || null
         });
       } else {
-        res.status(500).json({ mensaje: "Error en el procesamiento de IA" });
+        res.status(500).json({ mensaje: "Error IA" });
       }
     } catch (e) {
-      console.error("Error parseando JSON de Python:", e);
-      res.status(500).json({ mensaje: "Error interno del servidor de IA" });
+      console.error("Error JSON Python:", e);
+      res.status(500).json({ mensaje: "Error interno IA" });
     }
   });
 
   pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error en Python: ${data}`);
+    console.error(`Error Python: ${data}`);
   });
 });
 
 app.get("/", (req, res) => {
-  res.send("Backend funcionando 🚀");
+  res.send("Backend activo 🚀");
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`Servidor en puerto ${PORT}`);
 });

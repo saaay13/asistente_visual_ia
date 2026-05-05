@@ -1,15 +1,13 @@
+// Sintesis de voz con Web Speech API
 export const hablar = (texto) => {
-  if (!("speechSynthesis" in window)) {
-    console.warn("Este navegador no soporta síntesis de voz");
-    return;
-  }
+  if (!window.speechSynthesis) return;
 
+  // Cancela locuciones previas
   window.speechSynthesis.cancel();
 
-  const utterance = new SpeechSynthesisUtterance(texto);
-  utterance.lang = "es-ES";
-  utterance.rate = 1.0;
-  utterance.pitch = 1.0;
+  const mensaje = new SpeechSynthesisUtterance(texto);
+  mensaje.lang = "es-ES";
+  mensaje.rate = 1.1; // Velocidad ligeramente rapida
 
-  window.speechSynthesis.speak(utterance);
+  window.speechSynthesis.speak(mensaje);
 };

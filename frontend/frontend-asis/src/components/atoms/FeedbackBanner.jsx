@@ -1,10 +1,12 @@
 const FeedbackBanner = ({ mode }) => {
+  // Color segun modo activo
   const getBannerStyle = () => {
     if (mode === 'auto') return 'bg-green-600';
     if (mode === 'bills') return 'bg-blue-600';
     return 'bg-gray-800';
   };
 
+  // Texto informativo
   const getLabel = () => {
     if (mode === 'auto') return "MODO MOVILIDAD ACTIVO";
     if (mode === 'bills') return "MODO BILLETERA ACTIVO";
