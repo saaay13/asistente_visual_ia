@@ -8,13 +8,7 @@ logs/
 *.log
 .DS_Store
 docs/
-contexto.txt
-fases.txt
-/extra.txt
-/contexto.txt
-/fases.txt
-./extra.txt
-./contexto.txt
-./fases.txt
 /dataset
 /dataset_b
+dataset/
+dataset_b/
