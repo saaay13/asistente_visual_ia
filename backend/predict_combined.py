@@ -6,13 +6,23 @@ import base64
 import os
 from ultralytics import YOLO
 
-# Rutas de modelos entrenados
-path_baches = 'runs/detect/train/weights/best.pt'
-path_billetes = 'runs/classify/train/weights/best.pt'
+def get_model(path_relative):
+    # Intentamos buscar el modelo en varias rutas posibles
+    search_paths = [
+        path_relative,
+        os.path.join(os.path.dirname(__file__), path_relative),
+        os.path.join(os.getcwd(), path_relative),
+        'best.pt', # Si esta en la raiz
+    ]
+    for p in search_paths:
+        if os.path.exists(p):
+            print(f"DEBUG: Cargando modelo desde {p}", file=sys.stderr)
+            return YOLO(p)
+    return None
 
-# Carga de modelos con fallback a nano si no existen
-model_baches = YOLO(path_baches) if os.path.exists(path_baches) else YOLO('yolov8n.pt')
-model_billetes = YOLO(path_billetes) if os.path.exists(path_billetes) else None
+# Carga de modelos
+model_baches = get_model('runs/detect/train/weights/best.pt') or YOLO('yolov8n.pt')
+model_billetes = get_model('runs/classify/train/weights/best.pt')
 
 def predict(base64_str):
   try:

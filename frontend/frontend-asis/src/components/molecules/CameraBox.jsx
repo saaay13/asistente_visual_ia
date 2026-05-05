@@ -12,19 +12,29 @@ const CameraBox = () => {
   const lastObjectRef = useRef(null);
   const lastSpeakTimeRef = useRef(0);
   const lastBacheTimeRef = useRef(0);
-  
+
   // Modos: 'off', 'auto' (movilidad), 'bills' (billetera)
   const [mode, setMode] = useState('off');
   const [isModelReady, setIsModelReady] = useState(false);
   const clickTimer = useRef(null);
   const clickCount = useRef(0);
 
+  // Usamos una referencia para el modo para evitar problemas de "stale state" en el intervalo
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
   // Carga del modelo local
   useEffect(() => {
     const cargarModelo = async () => {
-      modelRef.current = await cocoSsd.load();
-      setIsModelReady(true);
-      console.log("Modelo cargado ✅");
+      try {
+        modelRef.current = await cocoSsd.load();
+        setIsModelReady(true);
+        console.log("Modelo cargado ✅");
+      } catch (e) {
+        console.error("Error cargando modelo coco-ssd:", e);
+      }
     };
     cargarModelo();
   }, []);
@@ -34,7 +44,11 @@ const CameraBox = () => {
     const activarCamara = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
+          video: {
+            facingMode: "environment",
+            width: { ideal: 640 },
+            height: { ideal: 480 }
+          },
         });
         videoRef.current.srcObject = stream;
       } catch (error) {
@@ -46,34 +60,43 @@ const CameraBox = () => {
 
   // Envio al servidor segun modo
   const enviarABackend = async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || modeRef.current === 'off') return;
 
     const canvas = canvasRef.current;
     const context = canvas.getContext("2d");
-    canvas.width = videoRef.current.videoWidth;
-    canvas.height = videoRef.current.videoHeight;
-    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    // Redimensionamos para que sea mas rapido (640px)
+    canvas.width = 640;
+    canvas.height = 480;
+    context.drawImage(videoRef.current, 0, 0, 640, 480);
 
-    const imagenBase64 = canvas.toDataURL("image/jpeg", 0.5);
+    const imagenBase64 = canvas.toDataURL("image/jpeg", 0.4); // Calidad baja para velocidad
+
+    // Detectamos si estamos en la laptop o en el celular
+    const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const backendURL = isLocal
+      ? "http://localhost:4000/api/imagen"
+      : "https://8305d61c05b11b.lhr.life/api/imagen";
 
     try {
-      const response = await fetch("http://192.168.0.16:4000/api/imagen", {
+      const response = await fetch(backendURL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagen: imagenBase64 }),
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: imagenBase64,
       });
 
       const data = await response.json();
       const ahora = Date.now();
 
-      // Logica segun el modo activo
-      if (mode === 'auto' && data.detectado) {
-        if (ahora - lastBacheTimeRef.current > 6000) {
+      // VALIDACION ESTRICTA DE MODO
+      if (modeRef.current === 'auto' && data.detectado) {
+        if (ahora - lastBacheTimeRef.current > 5000) {
           hablar("Cuidado, bache adelante");
           lastBacheTimeRef.current = ahora;
         }
-      } 
-      else if (mode === 'bills' && data.billete) {
+      }
+      else if (modeRef.current === 'bills' && data.billete) {
         if (data.billete !== lastObjectRef.current) {
           hablar(`Billete de ${data.billete}`);
           lastObjectRef.current = data.billete;
@@ -86,10 +109,11 @@ const CameraBox = () => {
 
   // Deteccion continua
   const detectar = async () => {
-    if (!modelRef.current || !videoRef.current || mode === 'off') return;
+    const currentMode = modeRef.current;
+    if (!videoRef.current || currentMode === 'off') return;
 
     // Solo modo auto usa deteccion local (personas/objetos)
-    if (mode === 'auto') {
+    if (currentMode === 'auto' && modelRef.current) {
       const predicciones = await modelRef.current.detect(videoRef.current);
       if (predicciones.length > 0) {
         const objeto = predicciones[0].class;
@@ -102,15 +126,15 @@ const CameraBox = () => {
       }
     }
 
-    // Ambos modos llaman al servidor (pero el servidor filtra por modo)
+    // Llamamos al backend (el backend procesa segun lo que encuentre)
     enviarABackend();
   };
 
-  // Intervalo de ejecucion
+  // Intervalo de ejecucion: AHORA MAS RAPIDO (1 segundo)
   useEffect(() => {
     let interval;
     if (mode !== 'off') {
-      interval = setInterval(detectar, 3000);
+      interval = setInterval(detectar, 1000);
     }
     return () => clearInterval(interval);
   }, [mode]);
@@ -126,7 +150,7 @@ const CameraBox = () => {
         const nextMode = mode === 'auto' ? 'off' : 'auto';
         setMode(nextMode);
         hablar(nextMode === 'auto' ? "Modo asistencia" : "Asistencia apagada");
-      } 
+      }
       else if (clickCount.current === 3) {
         const nextMode = mode === 'bills' ? 'off' : 'bills';
         setMode(nextMode);
@@ -142,15 +166,14 @@ const CameraBox = () => {
       onClick={handleTouch}
     >
       <StatusIndicator isReady={isModelReady} mode={mode} />
-      
+
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        className={`w-full rounded-xl transition-all duration-300 ${
-          mode === 'auto' ? 'border-4 border-green-500' : 
-          mode === 'bills' ? 'border-4 border-blue-500' : 'border-4 border-transparent'
-        }`}
+        className={`w-full rounded-xl transition-all duration-300 ${mode === 'auto' ? 'border-4 border-green-500' :
+            mode === 'bills' ? 'border-4 border-blue-500' : 'border-4 border-transparent'
+          }`}
       />
 
       <canvas ref={canvasRef} className="hidden" />

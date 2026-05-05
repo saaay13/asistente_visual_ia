@@ -8,6 +8,7 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
+app.use(express.text({ limit: "10mb" })); // Soporte para imagenes rapidas en texto
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -15,7 +16,13 @@ const PORT = process.env.PORT || 4000;
 
 // Ruta para procesar imagenes de la camara
 app.post("/api/imagen", (req, res) => {
-  const { imagen } = req.body;
+  // Aceptamos tanto JSON como texto plano para mayor compatibilidad
+  let imagen = typeof req.body === 'string' ? req.body : req.body.imagen;
+  
+  if (imagen && imagen.startsWith("data:image")) {
+    // Si viene con el prefijo "data:image/jpeg;base64,", lo limpiamos para Python
+    imagen = imagen.split(",")[1];
+  }
 
   if (!imagen) {
     return res.status(400).json({ mensaje: "Sin imagen" });

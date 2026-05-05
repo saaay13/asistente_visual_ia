@@ -45,26 +45,33 @@ Esto creara los archivos de pesos en la carpeta runs/.
 Entra en la carpeta frontend/frontend-asis y ejecuta:
 ```bash
 npm install
-```
+### 4. Ejecución del Proyecto
+Para iniciar el sistema completo:
+1.  **Backend:** `cd backend` y luego `npm run dev`.
+2.  **Frontend:** `cd frontend/frontend-asis` y luego `npm run dev`.
 
-### 5. Configuracion de Red (Importante para el celular)
-Para que el celular se conecte al servidor, debes abrir el archivo `frontend/frontend-asis/src/components/molecules/CameraBox.jsx` y cambiar la direccion IP por la direccion IPv4 actual de tu computadora (puedes verla usando el comando `ipconfig` en la terminal).
+---
 
-### 6. Ejecucion
-Inicia ambos servidores en terminales separadas:
+## Conexión con Dispositivos Móviles
+Para probar la aplicación en un celular desde fuera de tu red local (por ejemplo, en la universidad), debes crear túneles seguros.
 
-En /backend:
-```bash
-npm run dev
-```
+### Opción A: Usando Localtunnel
+Abre dos terminales adicionales y ejecuta:
+- **Para la Web:** `npx localtunnel --port 5173`
+- **Para la IA:** `npx localtunnel --port 4000`
 
-En /frontend/frontend-asis:
-```bash
-npm run dev
-```
+### Opción B: Usando SSH (Si Localtunnel está bloqueado)
+Si estás en una red restringida como una universidad, usa este comando:
+- `ssh -R 80:localhost:4000 nokey@localhost.run` (Para el Backend)
+- `ssh -R 80:localhost:5173 nokey@localhost.run` (Para el Frontend)
 
-Accede desde tu celular a la direccion HTTPS que te proporcione Vite (usualmente https://tu-ip:5173).
+> [!IMPORTANT]
+> Recuerda actualizar la URL del backend en `CameraBox.jsx` con la dirección que te proporcione el túnel.
 
-## Instrucciones de Uso
-- Doble toque: Activa/Desactiva el Modo Movilidad (detecta personas y baches).
-- Triple toque: Activa/Desactiva el Modo Billetera (identifica billetes bolivianos).
+---
+
+## Modos de Interacción
+La aplicación está optimizada para ser usada sin ver la pantalla mediante gestos táctiles:
+- **Doble Toque:** Activa el **Modo Movilidad** (Detección de baches, personas y obstáculos).
+- **Triple Toque:** Activa el **Modo Billetera** (Identificación de billetes bolivianos).
+- **Voz en tiempo real:** Todas las alertas se emiten mediante síntesis de voz en español.
