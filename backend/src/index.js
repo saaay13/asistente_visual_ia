@@ -21,16 +21,14 @@ app.post("/api/imagen", (req, res) => {
     return res.status(400).json({ mensaje: "No se recibió imagen" });
   }
 
-  // Llamar al script de Python
-  const pythonProcess = spawn('python', ['predict_baches.py']);
+  // Llamar al script de Python combinado (Baches + Billetes)
+  const pythonProcess = spawn('python', ['predict_combined.py']);
 
   let resultData = "";
 
-  // Enviar la imagen base64 al script de Python
   pythonProcess.stdin.write(imagen);
   pythonProcess.stdin.end();
 
-  // Recibir la respuesta del script
   pythonProcess.stdout.on('data', (data) => {
     resultData += data.toString();
   });
@@ -39,9 +37,17 @@ app.post("/api/imagen", (req, res) => {
     try {
       if (resultData) {
         const resultado = JSON.parse(resultData);
+        
+        // Construimos el mensaje de respuesta basado en ambos modelos
+        let mensaje = "";
+        if (resultado.bache) mensaje += "Bache detectado. ";
+        if (resultado.billete) mensaje += `Billete de ${resultado.billete} identificado. `;
+        if (!resultado.bache && !resultado.billete) mensaje = "Camino despejado";
+
         res.json({
-          detectado: resultado.detectado,
-          mensaje: resultado.detectado ? "Bache detectado" : "Camino despejado",
+          detectado: resultado.bache,
+          billete: resultado.billete,
+          mensaje: mensaje,
           error: resultado.error || null
         });
       } else {
