@@ -10,3 +10,10 @@ logs/
 docs/
 contexto.txt
 fases.txt
+/extra.txt
+/contexto.txt
+/fases.txt
+./extra.txt
+./contexto.txt
+./fases.txt
+/dataset
