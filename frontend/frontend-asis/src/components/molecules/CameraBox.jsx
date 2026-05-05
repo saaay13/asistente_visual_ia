@@ -3,6 +3,7 @@ import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import { interpretarObjeto } from "../../ia/reglas";
 import { hablar } from "../../ia/voz";
+import { FeedbackBanner, StatusIndicator } from "../atoms";
 
 const CameraBox = () => {
   const videoRef = useRef(null);
@@ -10,10 +11,12 @@ const CameraBox = () => {
   const lastObjectRef = useRef(null);
   const lastSpeakTimeRef = useRef(0);
   const [isAuto, setIsAuto] = useState(false);
+  const [isModelReady, setIsModelReady] = useState(false);
 
   useEffect(() => {
     const cargarModelo = async () => {
       modelRef.current = await cocoSsd.load();
+      setIsModelReady(true);
       console.log("Modelo cargado ✅");
     };
 
@@ -69,7 +72,6 @@ const CameraBox = () => {
   useEffect(() => {
     let interval;
     if (isAuto) {
-      hablar("Asistencia automática iniciada. Escaneando el entorno.");
       interval = setInterval(() => {
         detectar();
       }, 3500);
@@ -81,14 +83,22 @@ const CameraBox = () => {
   }, [isAuto]);
 
   const toggleAutoMode = () => {
-    setIsAuto(!isAuto);
+    if (!isAuto) {
+      hablar("Iniciando asistencia. Escaneando el entorno.");
+      setIsAuto(true);
+    } else {
+      hablar("Apagando asistencia. Detección detenida.");
+      setIsAuto(false);
+    }
   };
 
   return (
     <div
-      className="flex flex-col items-center gap-4 w-full h-full cursor-pointer"
-      onClick={toggleAutoMode}
+      className="relative flex flex-col items-center gap-4 w-full h-full cursor-pointer select-none"
+      onDoubleClick={toggleAutoMode}
     >
+      <StatusIndicator isReady={isModelReady} isAuto={isAuto} />
+      
       <video
         ref={videoRef}
         autoPlay
@@ -96,9 +106,7 @@ const CameraBox = () => {
         className={`w-full rounded-xl transition-all duration-300 ${isAuto ? 'border-4 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]' : 'border-4 border-transparent'}`}
       />
 
-      <div className={`p-4 w-full text-center rounded-xl text-white text-xl font-bold transition-all duration-300 ${isAuto ? 'bg-green-600' : 'bg-gray-800'}`}>
-        {isAuto ? "🛑 DETENER" : "INICIAR"}
-      </div>
+      <FeedbackBanner isAuto={isAuto} />
     </div>
   );
 };
