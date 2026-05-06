@@ -3,6 +3,7 @@ import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
 import { interpretarObjeto } from "../../ia/reglas";
 import { hablar } from "../../ia/voz";
+import { TRANSLATIONS } from "../../ia/traducciones";
 import { FeedbackBanner, StatusIndicator } from "../atoms";
 
 const CameraBox = () => {
@@ -13,33 +14,28 @@ const CameraBox = () => {
   const lastSpeakTimeRef = useRef(0);
   const lastBacheTimeRef = useRef(0);
 
-  // Modos: 'off', 'auto' (movilidad), 'bills' (billetera)
   const [mode, setMode] = useState('off');
   const [isModelReady, setIsModelReady] = useState(false);
   const clickTimer = useRef(null);
   const clickCount = useRef(0);
 
-  // Usamos una referencia para el modo para evitar problemas de "stale state" en el intervalo
   const modeRef = useRef(mode);
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
 
-  // Carga del modelo local
   useEffect(() => {
     const cargarModelo = async () => {
       try {
         modelRef.current = await cocoSsd.load();
         setIsModelReady(true);
-        console.log("Modelo cargado ✅");
       } catch (e) {
-        console.error("Error cargando modelo coco-ssd:", e);
+        console.error("Error cargando modelo:", e);
       }
     };
     cargarModelo();
   }, []);
 
-  // Camara
   useEffect(() => {
     const activarCamara = async () => {
       try {
@@ -58,20 +54,43 @@ const CameraBox = () => {
     activarCamara();
   }, []);
 
-  // Envio al servidor segun modo
+  const drawBoxes = (predicciones) => {
+    const ctx = canvasRef.current.getContext("2d");
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    predicciones.forEach(pred => {
+      const [x, y, width, height] = pred.bbox;
+      const label = TRANSLATIONS[pred.class] || pred.class;
+
+      // Estilo del cuadro
+      ctx.strokeStyle = "#10b981"; // Esmeralda
+      ctx.lineWidth = 4;
+      ctx.setLineDash([]);
+      ctx.strokeRect(x, y, width, height);
+
+      // Fondo del texto
+      ctx.fillStyle = "#10b981";
+      const textWidth = ctx.measureText(label).width;
+      ctx.fillRect(x, y - 30, textWidth + 20, 30);
+
+      // Texto
+      ctx.fillStyle = "white";
+      ctx.font = "bold 18px Inter, system-ui";
+      ctx.fillText(label, x + 10, y - 8);
+    });
+  };
+
   const enviarABackend = async () => {
     if (!videoRef.current || !canvasRef.current || modeRef.current === 'off') return;
 
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-    // Redimensionamos para que sea mas rapido (640px)
-    canvas.width = 640;
-    canvas.height = 480;
-    context.drawImage(videoRef.current, 0, 0, 640, 480);
+    // Usamos un canvas temporal para el frame del backend para no ensuciar el de dibujo
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = 640;
+    tempCanvas.height = 480;
+    const ctx = tempCanvas.getContext("2d");
+    ctx.drawImage(videoRef.current, 0, 0, 640, 480);
+    const imagenBase64 = tempCanvas.toDataURL("image/jpeg", 0.4);
 
-    const imagenBase64 = canvas.toDataURL("image/jpeg", 0.4); // Calidad baja para velocidad
-
-    // Detectamos si estamos en la laptop o en el celular
     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     const backendURL = isLocal
       ? "http://localhost:4000/api/imagen"
@@ -80,16 +99,13 @@ const CameraBox = () => {
     try {
       const response = await fetch(backendURL, {
         method: "POST",
-        headers: {
-          "Content-Type": "text/plain"
-        },
+        headers: { "Content-Type": "text/plain" },
         body: imagenBase64,
       });
 
       const data = await response.json();
       const ahora = Date.now();
 
-      // VALIDACION ESTRICTA DE MODO
       if (modeRef.current === 'auto' && data.detectado) {
         if (ahora - lastBacheTimeRef.current > 5000) {
           hablar("Cuidado, bache adelante");
@@ -107,14 +123,18 @@ const CameraBox = () => {
     }
   };
 
-  // Deteccion continua
   const detectar = async () => {
     const currentMode = modeRef.current;
-    if (!videoRef.current || currentMode === 'off') return;
+    if (!videoRef.current || !canvasRef.current || currentMode === 'off') return;
 
-    // Solo modo auto usa deteccion local (personas/objetos)
     if (currentMode === 'auto' && modelRef.current) {
       const predicciones = await modelRef.current.detect(videoRef.current);
+      
+      // Dibujar en el canvas principal
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+      drawBoxes(predicciones);
+
       if (predicciones.length > 0) {
         const objeto = predicciones[0].class;
         const ahora = Date.now();
@@ -124,27 +144,32 @@ const CameraBox = () => {
           lastSpeakTimeRef.current = ahora;
         }
       }
+    } else {
+      // Limpiar canvas si no estamos en auto
+      const ctx = canvasRef.current.getContext("2d");
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
     }
 
-    // Llamamos al backend (el backend procesa segun lo que encuentre)
     enviarABackend();
   };
 
-  // Intervalo de ejecucion: AHORA MAS RAPIDO (1 segundo)
   useEffect(() => {
     let interval;
     if (mode !== 'off') {
       interval = setInterval(detectar, 1000);
     }
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext("2d");
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    };
   }, [mode]);
 
-  // Manejador de toques (2 para auto, 3 para billetes)
   const handleTouch = () => {
     clickCount.current += 1;
-
     if (clickTimer.current) clearTimeout(clickTimer.current);
-
     clickTimer.current = setTimeout(() => {
       if (clickCount.current === 2) {
         const nextMode = mode === 'auto' ? 'off' : 'auto';
@@ -157,30 +182,34 @@ const CameraBox = () => {
         hablar(nextMode === 'bills' ? "Modo billetera" : "Billetera apagada");
       }
       clickCount.current = 0;
-    }, 400); // Espera para ver si hay mas toques
+    }, 400);
   };
 
   return (
     <div
-      className="relative flex flex-col items-center gap-4 w-full h-full cursor-pointer"
+      className="relative flex flex-col items-center gap-4 w-full h-full cursor-pointer overflow-hidden"
       onClick={handleTouch}
     >
       <StatusIndicator isReady={isModelReady} mode={mode} />
 
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        className={`w-full rounded-xl transition-all duration-300 ${mode === 'auto' ? 'border-4 border-green-500' :
-            mode === 'bills' ? 'border-4 border-blue-500' : 'border-4 border-transparent'
+      <div className="relative w-full h-[75vh] rounded-3xl overflow-hidden bg-black shadow-2xl border-4 border-white/10">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          className={`absolute inset-0 w-full h-full object-cover transition-all duration-500 ${
+            mode === 'auto' ? 'scale-105' : 'scale-100'
           }`}
-      />
-
-      <canvas ref={canvasRef} className="hidden" />
+        />
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+        />
+      </div>
 
       <FeedbackBanner mode={mode} />
     </div>
   );
 };
 
-export default CameraBox;
+export default CameraBox;
