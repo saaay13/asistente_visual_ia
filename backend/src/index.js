@@ -1,26 +1,25 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { spawn } from "child_process";
+import axios from "axios";
 
 dotenv.config();
 
 const app = express();
 
 app.use(cors());
-app.use(express.text({ limit: "10mb" })); // Soporte para imagenes rapidas en texto
+app.use(express.text({ limit: "10mb" }));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 const PORT = process.env.PORT || 4000;
+const PYTHON_API_URL = "http://localhost:5000/predict";
 
 // Ruta para procesar imagenes de la camara
-app.post("/api/imagen", (req, res) => {
-  // Aceptamos tanto JSON como texto plano para mayor compatibilidad
+app.post("/api/imagen", async (req, res) => {
   let imagen = typeof req.body === 'string' ? req.body : req.body.imagen;
   
   if (imagen && imagen.startsWith("data:image")) {
-    // Si viene con el prefijo "data:image/jpeg;base64,", lo limpiamos para Python
     imagen = imagen.split(",")[1];
   }
 
@@ -28,46 +27,33 @@ app.post("/api/imagen", (req, res) => {
     return res.status(400).json({ mensaje: "Sin imagen" });
   }
 
-  // Ejecuta script de IA combinada
-  const pythonProcess = spawn('python', ['predict_combined.py']);
+  try {
+    // Llamamos al microservicio de IA (Flask)
+    const response = await axios.post(PYTHON_API_URL, {
+      image: imagen
+    });
 
-  let resultData = "";
+    const resultado = response.data;
+    
+    let mensaje = "";
+    if (resultado.bache) mensaje += "Bache detectado. ";
+    if (resultado.billete) mensaje += `Billete de ${resultado.billete} identificado. `;
+    if (!resultado.bache && !resultado.billete) mensaje = "Camino despejado";
 
-  pythonProcess.stdin.write(imagen);
-  pythonProcess.stdin.end();
+    res.json({
+      detectado: resultado.bache,
+      billete: resultado.billete,
+      mensaje: mensaje,
+      error: resultado.error || null
+    });
 
-  pythonProcess.stdout.on('data', (data) => {
-    resultData += data.toString();
-  });
-
-  pythonProcess.on('close', (code) => {
-    try {
-      if (resultData) {
-        const resultado = JSON.parse(resultData);
-        
-        let mensaje = "";
-        if (resultado.bache) mensaje += "Bache detectado. ";
-        if (resultado.billete) mensaje += `Billete de ${resultado.billete} identificado. `;
-        if (!resultado.bache && !resultado.billete) mensaje = "Camino despejado";
-
-        res.json({
-          detectado: resultado.bache,
-          billete: resultado.billete,
-          mensaje: mensaje,
-          error: resultado.error || null
-        });
-      } else {
-        res.status(500).json({ mensaje: "Error IA" });
-      }
-    } catch (e) {
-      console.error("Error JSON Python:", e);
-      res.status(500).json({ mensaje: "Error interno IA" });
-    }
-  });
-
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`Error Python: ${data}`);
-  });
+  } catch (error) {
+    console.error("Error conectando con el servidor de IA:", error.message);
+    res.status(500).json({ 
+      mensaje: "Servidor de IA no disponible", 
+      detalle: error.message 
+    });
+  }
 });
 
 app.get("/", (req, res) => {

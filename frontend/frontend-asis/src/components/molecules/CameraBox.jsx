@@ -94,7 +94,7 @@ const CameraBox = () => {
     const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
     const backendURL = isLocal
       ? "http://localhost:4000/api/imagen"
-      : "https://8305d61c05b11b.lhr.life/api/imagen";
+      : "https://3b433d6cbe319e.lhr.life/api/imagen";
 
     try {
       const response = await fetch(backendURL, {
@@ -212,4 +212,4 @@ const CameraBox = () => {
   );
 };
 
-export default CameraBox;
+export default CameraBox;
